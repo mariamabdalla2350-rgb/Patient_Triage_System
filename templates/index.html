@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Patient Triage System</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container { max-width: 700px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+    .header { text-align: center; }
+    .header h1 { font-size: 28px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #888; }
+
+    .card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 16px; padding: 28px 32px; }
+    .card h2 { font-size: 18px; font-weight: 500; color: #fff; margin-bottom: 22px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+
+    label { font-size: 13px; font-weight: 500; color: #aaa; }
+    .hint { font-weight: 400; color: #666; }
+
+    input, select {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e0e0e0;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: #4f8ef7; }
+    input::placeholder { color: #444; }
+
+    /* Symptom category tabs */
+    .symptom-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .tab-btn {
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid #2a2d3a;
+      background: #0f1117;
+      color: #aaa;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { border-color: #4f8ef7; color: #4f8ef7; background: #0d1f3c; }
+    .tab-btn:hover { border-color: #4f8ef7; color: #4f8ef7; }
+
+    /* Symptom grid */
+    .symptom-panel { display: none; }
+    .symptom-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .symptom-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      font-size: 13px;
+      color: #ccc;
+    }
+    .symptom-item:hover { border-color: #4f8ef7; }
+    .symptom-item.selected { border-color: #4f8ef7; background: #0d1f3c; color: #fff; }
+
+    .symptom-item input[type="checkbox"] {
+      width: 15px; height: 15px;
+      accent-color: #4f8ef7;
+      flex-shrink: 0;
+      padding: 0;
+    }
+
+    /* Selected symptoms display */
+    .selected-display {
+      margin-top: 12px;
+      min-height: 36px;
+      padding: 8px 12px;
+      background: #0f1117;
+      border: 1px dashed #2a2d3a;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .sel-pill {
+      background: #0d1f3c;
+      border: 1px solid #4f8ef7;
+      color: #4f8ef7;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    button.run-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 13px;
+      background: #4f8ef7;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.run-btn:hover { background: #3a7ae0; }
+
+    /* Result */
+    .result { display: none; }
+    .result.show { display: block; }
+    .result-inner { border-left: 5px solid #444; border-radius: 0 16px 16px 0; background: #1a1d27; padding: 28px 32px; }
+    .patient-name { font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 16px; }
+    .category-badge { display: inline-block; font-size: 18px; font-weight: 700; padding: 10px 24px; border-radius: 999px; margin-bottom: 24px; letter-spacing: 1px; }
+
+    .IMMEDIATE .result-inner { border-left-color: #e53935; }
+    .IMMEDIATE .category-badge { background: #3b1212; color: #ff6b6b; }
+    .URGENT .result-inner { border-left-color: #fb8c00; }
+    .URGENT .category-badge { background: #3b2100; color: #ffb347; }
+    .NORMAL .result-inner { border-left-color: #f9a825; }
+    .NORMAL .category-badge { background: #2e2500; color: #ffe066; }
+    .NONURGENT .result-inner { border-left-color: #43a047; }
+    .NONURGENT .category-badge { background: #0d2b10; color: #69f07a; }
+
+    .reasons h3 { font-size: 14px; color: #aaa; margin-bottom: 10px; font-weight: 500; }
+    .reasons ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .reasons ul li { font-size: 14px; padding: 8px 14px; background: #0f1117; border-radius: 8px; border: 1px solid #2a2d3a; color: #ccc; }
+    .reasons ul li::before { content: "— "; color: #555; }
+
+    .disclaimer { margin-top: 20px; font-size: 12px; color: #666; text-align: center; border-top: 1px solid #2a2d3a; padding-top: 16px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🏥 Patient Triage System</h1>
+    <p class="subtitle">Educational Use Only — Not a Medical Tool</p>
+  </div>
+
+  <div class="card">
+    <h2>Patient Information</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Patient Name</label>
+        <input type="text" id="name" placeholder="e.g. Sara" />
+      </div>
+      <div class="form-group">
+        <label>Age</label>
+        <input type="number" id="age" min="0" max="120" placeholder="e.g. 34" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Pain Level <span class="hint">(0 = none, 10 = worst)</span></label>
+        <input type="number" id="pain_level" min="0" max="10" placeholder="0–10" />
+      </div>
+      <div class="form-group">
+        <label>Temperature (°C)</label>
+        <input type="number" id="fever" step="0.1" min="30" max="45" placeholder="e.g. 38.5" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Pulse (bpm)</label>
+        <input type="number" id="pulse" min="0" max="300" placeholder="e.g. 88" />
+      </div>
+      <div class="form-group">
+        <label>Shortness of Breath?</label>
+        <select id="sob">
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Symptom Checklist -->
+    <div class="form-group">
+      <label>Symptoms <span class="hint">(select all that apply)</span></label>
+
+      <div class="symptom-tabs">
+        <button class="tab-btn active" onclick="showTab('critical')">🔴 Critical</button>
+        <button class="tab-btn" onclick="showTab('urgent')">🟠 Urgent</button>
+        <button class="tab-btn" onclick="showTab('moderate')">🟡 Moderate</button>
+        <button class="tab-btn" onclick="showTab('minor')">🟢 Minor</button>
+      </div>
+
+      <!-- Critical -->
+      <div class="symptom-panel active" id="panel-critical">
+        <div class="symptom-item" onclick="toggleSymptom(this, 'chest pain')"><input type="checkbox"> Chest pain</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'cardiac arrest')"><input type="checkbox"> Cardiac arrest</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'unconscious')"><input type="checkbox"> Unconscious</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'stroke')"><input type="checkbox"> Stroke signs</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'anaphylaxis')"><input type="checkbox"> Anaphylaxis</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'uncontrolled bleeding')"><input type="checkbox"> Uncontrolled bleeding</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'respiratory arrest')"><input type="checkbox"> Respiratory arrest</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'cyanosis')"><input type="checkbox"> Cyanosis (blue lips)</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'sepsis')"><input type="checkbox"> Sepsis / septic shock</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'seizure')"><input type="checkbox"> Seizure</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'meningitis')"><input type="checkbox"> Meningitis rash</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'severe burns')"><input type="checkbox"> Severe burns</div>
+      </div>
+
+      <!-- Urgent -->
+      <div class="symptom-panel" id="panel-urgent">
+        <div class="symptom-item" onclick="toggleSymptom(this, 'shortness of breath')"><input type="checkbox"> Shortness of breath</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'confusion')"><input type="checkbox"> Confusion</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'severe abdominal pain')"><input type="checkbox"> Severe abdominal pain</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'head injury')"><input type="checkbox"> Head injury</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'fracture')"><input type="checkbox"> Fracture / broken bone</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'thunderclap headache')"><input type="checkbox"> Thunderclap headache</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'stiff neck')"><input type="checkbox"> Stiff neck</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'diabetic emergency')"><input type="checkbox"> Diabetic emergency</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'allergic reaction')"><input type="checkbox"> Allergic reaction</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'heavy bleeding')"><input type="checkbox"> Heavy bleeding</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'overdose')"><input type="checkbox"> Overdose / poisoning</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'kidney stone')"><input type="checkbox"> Kidney stone / flank pain</div>
+      </div>
+
+      <!-- Moderate -->
+      <div class="symptom-panel" id="panel-moderate">
+        <div class="symptom-item" onclick="toggleSymptom(this, 'vomiting')"><input type="checkbox"> Vomiting</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'diarrhoea')"><input type="checkbox"> Diarrhoea</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'moderate abdominal pain')"><input type="checkbox"> Moderate abdominal pain</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'urinary tract infection')"><input type="checkbox"> Urinary tract infection</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'moderate back pain')"><input type="checkbox"> Moderate back pain</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'sprain')"><input type="checkbox"> Sprain / twisted ankle</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'moderate headache')"><input type="checkbox"> Moderate headache</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'ear pain')"><input type="checkbox"> Ear pain / infection</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'rash')"><input type="checkbox"> Skin rash</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'dental abscess')"><input type="checkbox"> Dental abscess</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'eye infection')"><input type="checkbox"> Eye infection</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'musculoskeletal chest pain')"><input type="checkbox"> Chest pain (non-cardiac)</div>
+      </div>
+
+      <!-- Minor -->
+      <div class="symptom-panel" id="panel-minor">
+        <div class="symptom-item" onclick="toggleSymptom(this, 'common cold')"><input type="checkbox"> Common cold</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'sore throat')"><input type="checkbox"> Sore throat</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'mild headache')"><input type="checkbox"> Mild headache</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'minor cut')"><input type="checkbox"> Minor cut / abrasion</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'muscle ache')"><input type="checkbox"> Muscle ache</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'insect bite')"><input type="checkbox"> Insect bite</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'mild nausea')"><input type="checkbox"> Mild nausea</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'constipation')"><input type="checkbox"> Constipation</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'mild rash')"><input type="checkbox"> Mild rash</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'anxiety')"><input type="checkbox"> Anxiety</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'minor eye irritation')"><input type="checkbox"> Minor eye irritation</div>
+        <div class="symptom-item" onclick="toggleSymptom(this, 'follow-up')"><input type="checkbox"> Follow-up / wound check</div>
+      </div>
+
+      <!-- Selected pills display -->
+      <div class="selected-display" id="selected-display">
+        <span style="color:#555">No symptoms selected yet</span>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runTriage()">Run Triage ➜</button>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-inner">
+      <h2>Triage Result</h2>
+      <div class="patient-name" id="result-name"></div>
+      <div class="category-badge" id="result-badge"></div>
+      <div class="reasons">
+        <h3>Reasons</h3>
+        <ul id="result-reasons"></ul>
+      </div>
+      <p class="disclaimer">⚠️ This result is for educational purposes only and must not be used for real clinical decisions.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const IMMEDIATE = ['chest pain','cardiac arrest','unconscious','stroke','anaphylaxis','uncontrolled bleeding','respiratory arrest','cyanosis','blue lips','sepsis','septic shock','meningitis','seizure','severe burns','crushing chest pain','major bleeding','not breathing','non-blanching rash','slurred speech','facial drooping'];
+  const URGENT    = ['shortness of breath','confusion','severe abdominal pain','head injury','fracture','thunderclap headache','stiff neck','diabetic emergency','allergic reaction','heavy bleeding','overdose','kidney stone','difficulty breathing','disorientation','concussion','suspected fracture','sudden severe headache','hypoglycemia','hyperglycemia','lip swelling','rectal bleeding','poisoning','flank pain'];
+  const NORMAL    = ['vomiting','diarrhoea','moderate abdominal pain','urinary tract infection','painful urination','moderate back pain','sprain','twisted ankle','moderate headache','ear pain','ear infection','rash','dental abscess','toothache','eye infection','conjunctivitis','musculoskeletal chest pain','stomach cramps'];
+  const NONURGENT = ['common cold','sore throat','mild headache','minor cut','abrasion','muscle ache','insect bite','mild nausea','constipation','mild rash','anxiety','minor eye irritation','follow-up','wound check','runny nose','dry eyes'];
+
+  let selectedSymptoms = [];
+
+  function toggleSymptom(el, symptom) {
+    const cb = el.querySelector('input[type="checkbox"]');
+    const idx = selectedSymptoms.indexOf(symptom);
+    if (idx === -1) {
+      selectedSymptoms.push(symptom);
+      el.classList.add('selected');
+      cb.checked = true;
+    } else {
+      selectedSymptoms.splice(idx, 1);
+      el.classList.remove('selected');
+      cb.checked = false;
+    }
+    updateDisplay();
+  }
+
+  function updateDisplay() {
+    const box = document.getElementById('selected-display');
+    if (selectedSymptoms.length === 0) {
+      box.innerHTML = '<span style="color:#555">No symptoms selected yet</span>';
+    } else {
+      box.innerHTML = selectedSymptoms.map(s =>
+        `<span class="sel-pill">${s}</span>`
+      ).join('');
+    }
+  }
+
+  function showTab(tab) {
+    document.querySelectorAll('.symptom-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  function matchSymptom(symptom, list) {
+    return list.some(s => symptom.includes(s) || s.includes(symptom));
+  }
+
+  function runTriage() {
+    const name      = document.getElementById('name').value.trim();
+    const age       = parseInt(document.getElementById('age').value);
+    const painLevel = parseInt(document.getElementById('pain_level').value);
+    const fever     = parseFloat(document.getElementById('fever').value);
+    const pulse     = parseInt(document.getElementById('pulse').value);
+    const sob       = document.getElementById('sob').value === 'yes';
+
+    if (!name || isNaN(age) || isNaN(painLevel) || isNaN(fever) || isNaN(pulse)) {
+      alert('Please fill in all fields before running triage.');
+      return;
+    }
+    if (selectedSymptoms.length === 0) {
+      alert('Please select at least one symptom.');
+      return;
+    }
+
+    let score = 0, reasons = [];
+
+    selectedSymptoms.forEach(s => {
+      if (matchSymptom(s, IMMEDIATE)) {
+        reasons.push('Critical symptom: ' + s); score += 100;
+      } else if (matchSymptom(s, URGENT)) {
+        reasons.push('Urgent symptom: ' + s); score += 30;
+      } else if (matchSymptom(s, NORMAL)) {
+        reasons.push('Moderate symptom: ' + s); score += 12;
+      } else {
+        reasons.push('Minor symptom: ' + s); score += 4;
+      }
+    });
+
+    if (sob) { reasons.push('Shortness of breath present'); score += 40; }
+
+    if (pulse < 40 || pulse > 150) { reasons.push('Critical pulse: ' + pulse + ' bpm'); score += 60; }
+    else if (pulse > 130)          { reasons.push('Dangerously high pulse: ' + pulse + ' bpm'); score += 40; }
+    else if (pulse > 100)          { reasons.push('Elevated pulse: ' + pulse + ' bpm'); score += 20; }
+
+    if (fever > 41.0 || fever < 35.0) { reasons.push('Dangerous temperature: ' + fever + '°C'); score += 60; }
+    else if (fever >= 39.5)            { reasons.push('Very high fever: ' + fever + '°C'); score += 35; }
+    else if (fever >= 38.5)            { reasons.push('High fever: ' + fever + '°C'); score += 20; }
+    else if (fever >= 38.0)            { reasons.push('Mild fever: ' + fever + '°C'); score += 10; }
+
+    if (painLevel >= 9)      { reasons.push('Extreme pain: ' + painLevel + '/10'); score += 40; }
+    else if (painLevel >= 7) { reasons.push('Severe pain: ' + painLevel + '/10'); score += 25; }
+    else if (painLevel >= 5) { reasons.push('Moderate pain: ' + painLevel + '/10'); score += 12; }
+
+    if (age <= 2)       { reasons.push('Infant patient: ' + age + ' years'); score += 20; }
+    else if (age >= 75) { reasons.push('Elderly patient: ' + age + ' years'); score += 15; }
+    else if (age >= 65) { reasons.push('Older adult: ' + age + ' years'); score += 8; }
+
+    if (reasons.length === 0) reasons.push('No acute indicators found');
+
+    let category, icon;
+    if (score >= 80)      { category = 'IMMEDIATE';  icon = '🔴'; }
+    else if (score >= 40) { category = 'URGENT';     icon = '🟠'; }
+    else if (score >= 15) { category = 'NORMAL';     icon = '🟡'; }
+    else                  { category = 'NON-URGENT'; icon = '🟢'; }
+
+    const resultDiv = document.getElementById('result');
+    resultDiv.className = 'result show ' + category.replace('-', '');
+    document.getElementById('result-name').textContent = name;
+    document.getElementById('result-badge').textContent = icon + '  ' + category;
+
+    const ul = document.getElementById('result-reasons');
+    ul.innerHTML = '';
+    reasons.forEach(r => {
+      const li = document.createElement('li');
+      li.textContent = r;
+      ul.appendChild(li);
+    });
+
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
